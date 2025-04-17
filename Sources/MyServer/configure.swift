@@ -1,12 +1,14 @@
+// Sources/MyServer/configure.swift
+
 import NIOSSL
 import Fluent
 import FluentPostgresDriver
-import JWT             // ← Vapor’s new JWT module
+import JWT             // Vapor’s built‑in JWT module
 import Vapor
 
 public func configure(_ app: Application) async throws {
     // ─────────────────────────────────────────────────────────────────
-    // Allow larger request bodies (e.g. for /user/data uploads)
+    // Allow larger request bodies (for bulk /user/data uploads)
     // ─────────────────────────────────────────────────────────────────
     app.routes.defaultMaxBodySize = "2000mb"
 
@@ -15,8 +17,8 @@ public func configure(_ app: Application) async throws {
     // ─────────────────────────────────────────────────────────────────
     let hostname = Environment.get("DATABASE_HOST") ?? "localhost"
     let port     = Environment.get("DATABASE_PORT")
-                          .flatMap(Int.init(_:))
-                      ?? SQLPostgresConfiguration.ianaPortNumber
+                      .flatMap(Int.init(_:))
+                  ?? SQLPostgresConfiguration.ianaPortNumber
     let username = Environment.get("DATABASE_USERNAME") ?? "tannerbennett"
     let password = Environment.get("DATABASE_PASSWORD") ?? ""
     let database = Environment.get("DATABASE_NAME")     ?? "MyServerDB"
@@ -27,7 +29,7 @@ public func configure(_ app: Application) async throws {
         username: username,
         password: password.isEmpty ? nil : password,
         database: database,
-        tls: .disable    // disable TLS for local development
+        tls: .disable    // disable TLS for local dev
     )
     app.databases.use(
         DatabaseConfigurationFactory.postgres(configuration: dbConfig),
@@ -37,7 +39,6 @@ public func configure(_ app: Application) async throws {
     // ─────────────────────────────────────────────────────────────────
     // MARK: JWT Signer
     // ─────────────────────────────────────────────────────────────────
-    // Be sure to set JWT_SECRET in your ENV in production!
     let jwtKey = Environment.get("JWT_SECRET") ?? "CHANGE_THIS_SECRET"
     app.jwt.signers.use(.hs256(key: jwtKey))
 
@@ -46,9 +47,10 @@ public func configure(_ app: Application) async throws {
     // ─────────────────────────────────────────────────────────────────
     app.migrations.add(CreateTodo())
     app.migrations.add(CreateUser())
+    app.migrations.add(CreateRecipe())
 
     #if DEBUG
-    try await app.autoMigrate()   // auto‐run in DEBUG mode
+    try await app.autoMigrate()
     #endif
 
     // ─────────────────────────────────────────────────────────────────
