@@ -15,10 +15,8 @@ let package = Package(
         .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.8.0"),
         // JWT integration
         .package(url: "https://github.com/vapor/jwt.git", from: "4.0.0"),
-        // SwiftNIO core
+        // SwiftNIO core (optional—only if you’re using its low‑level APIs directly)
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
-        // 🚀 Queues for background jobs
-        .package(url: "https://github.com/vapor/queues.git", from: "1.17.0"),
     ],
     targets: [
         .executableTarget(
@@ -30,7 +28,6 @@ let package = Package(
                 .product(name: "JWT",                  package: "jwt"),
                 .product(name: "NIOCore",              package: "swift-nio"),
                 .product(name: "NIOPosix",             package: "swift-nio"),
-                .product(name: "Queues",               package: "queues"),
             ]
         ),
         .testTarget(
