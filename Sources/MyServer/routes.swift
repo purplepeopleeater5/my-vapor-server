@@ -3,19 +3,32 @@ import Fluent
 import SQLKit
 import JWT
 
-private struct TextRow: Decodable { let text: String }
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper for decoding JSONB → TEXT when fetching products
+// ─────────────────────────────────────────────────────────────────────────────
+private struct TextRow: Decodable {
+    let text: String
+}
 
 func routes(_ app: Application) throws {
-    // health check
+    // ─────────────────────────────────────────────────────────────────────────
+    // Health check
+    // ─────────────────────────────────────────────────────────────────────────
     app.get { _ in "✅ Vapor is up!" }
 
-    // auth
+    // ─────────────────────────────────────────────────────────────────────────
+    // Authentication
+    // ─────────────────────────────────────────────────────────────────────────
     try app.register(collection: AuthController())
 
-    // protected by JWT
+    // ─────────────────────────────────────────────────────────────────────────
+    // Protected routes (requires Bearer JWT)
+    // ─────────────────────────────────────────────────────────────────────────
     let protected = app.grouped(JWTMiddleware())
 
-    // ─── fetch recipes ───────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1️⃣ Fetch only this user’s recipes
+    // ─────────────────────────────────────────────────────────────────────────
     protected.get("user", "data") { req async throws -> [Recipe] in
         let payload = try req.auth.require(UserPayload.self)
         return try await Recipe.query(on: req.db)
@@ -23,21 +36,24 @@ func routes(_ app: Application) throws {
             .all()
     }
 
-    // ─── overwrite recipes ────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // 2️⃣ Overwrite only this user’s recipes
+    // ─────────────────────────────────────────────────────────────────────────
     protected.post("user", "data") { req async throws -> HTTPStatus in
         let payload = try req.auth.require(UserPayload.self)
         let userID = payload.id
 
-        // decode flat DTOs
+        // Decode exactly what the client sent
         let incoming = try req.content.decode([RecipeDTO].self)
 
+        // Transactionally wipe & re‐upsert
         try await req.db.transaction { db in
             // a) delete existing for this user
             _ = try await Recipe.query(on: db)
                 .filter(\.$owner.$id == userID)
                 .delete()
 
-            // b) recreate with owner set
+            // b) recreate or update each incoming DTO
             for dto in incoming {
                 let r = Recipe(
                     id:                   dto.id,
@@ -61,17 +77,20 @@ func routes(_ app: Application) throws {
                     dateAdded:            dto.dateAdded,
                     ingredients:          dto.ingredients,
                     methods:              dto.methods,
-                    categories:           dto.categories,   // plain strings
-                    cuisines:             dto.cuisines      // plain strings
+                    categories:           dto.categories,
+                    cuisines:             dto.cuisines
                 )
-                try await r.create(on: db)
+                // ← Upsert instead of plain INSERT
+                try await r.save(on: db)
             }
         }
 
         return .ok
     }
 
-    // ─── product lookup ───────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // 3️⃣ Lookup a product by barcode (raw JSONB → TEXT)
+    // ─────────────────────────────────────────────────────────────────────────
     protected.get("product", ":code") { req async throws -> Response in
         guard let code = req.parameters.get("code") else {
             throw Abort(.badRequest, reason: "Missing product code")
