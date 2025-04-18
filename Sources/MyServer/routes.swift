@@ -46,8 +46,27 @@ func routes(_ app: Application) throws {
                 let creations = incoming.map { recipe in
                     Recipe(
                         id: recipe.id,
+                        remoteID: recipe.remoteID,
                         title: recipe.title,
-                        ingredients: recipe.ingredients
+                        description: recipe.description,
+                        cookTime: recipe.cookTime,
+                        prepTime: recipe.prepTime,
+                        servings: recipe.servings,
+                        imageURL: recipe.imageURL,
+                        domainURL: recipe.domainURL,
+                        nutritionalInfo: recipe.nutritionalInfo,
+                        rating: recipe.rating,
+                        ratingCount: recipe.ratingCount,
+                        note: recipe.note,
+                        isMealPlanInstance: recipe.isMealPlanInstance,
+                        isNoteOrSection: recipe.isNoteOrSection,
+                        isPinned: recipe.isPinned,
+                        pinnedCount: recipe.pinnedCount,
+                        dateAdded: recipe.dateAdded,
+                        ingredients: recipe.ingredients,
+                        methods: recipe.methods,
+                        categories: recipe.categories,
+                        cuisines: recipe.cuisines
                     )
                     .create(on: db)
                 }
