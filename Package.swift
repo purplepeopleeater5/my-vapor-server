@@ -17,17 +17,28 @@ let package = Package(
         .package(url: "https://github.com/vapor/jwt.git", from: "4.0.0"),
         // SwiftNIO core
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
+
+        // Queues for background jobs (delta sync)
+        .package(url: "https://github.com/vapor/queues.git",               from: "1.8.0"),
+        .package(url: "https://github.com/vapor/queues-fluent-driver.git", from: "1.5.0"),
     ],
     targets: [
         .executableTarget(
             name: "MyServer",
             dependencies: [
+                // Core dependencies
                 .product(name: "Vapor",                package: "vapor"),
                 .product(name: "Fluent",               package: "fluent"),
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
                 .product(name: "JWT",                  package: "jwt"),
+
+                // SwiftNIO
                 .product(name: "NIOCore",              package: "swift-nio"),
                 .product(name: "NIOPosix",             package: "swift-nio"),
+
+                // Queues for scheduled jobs
+                .product(name: "Queues",               package: "queues"),
+                .product(name: "QueuesFluentDriver",   package: "queues-fluent-driver"),
             ]
         ),
         .testTarget(
