@@ -9,6 +9,10 @@ final class Recipe: Model, Content {
     @ID(key: .id)
     var id: UUID?
 
+    //––– Link to the owning user –––
+    @Parent(key: "userID")
+    var owner: User
+
     //––– Scalar attributes –––
     @Field(key: "id1")
     var remoteID: String
@@ -75,11 +79,12 @@ final class Recipe: Model, Content {
     var cuisines: [String]
 
     //––– Fluent requires an empty init –––
-    init() { }
+    init() {}
 
     /// Convenience initializer if you want to build one in code
     init(
         id: UUID? = nil,
+        ownerID: UUID,
         remoteID: String,
         title: String,
         description: String,
@@ -103,26 +108,27 @@ final class Recipe: Model, Content {
         cuisines: [String]
     ) {
         self.id = id
-        self.remoteID = remoteID
-        self.title = title
-        self.description = description
-        self.cookTime = cookTime
-        self.prepTime = prepTime
-        self.servings = servings
-        self.imageURL = imageURL
-        self.domainURL = domainURL
-        self.nutritionalInfo = nutritionalInfo
-        self.rating = rating
-        self.ratingCount = ratingCount
-        self.note = note
+        self.$owner.id = ownerID
+        self.remoteID         = remoteID
+        self.title            = title
+        self.description      = description
+        self.cookTime         = cookTime
+        self.prepTime         = prepTime
+        self.servings         = servings
+        self.imageURL         = imageURL
+        self.domainURL        = domainURL
+        self.nutritionalInfo  = nutritionalInfo
+        self.rating           = rating
+        self.ratingCount      = ratingCount
+        self.note             = note
         self.isMealPlanInstance = isMealPlanInstance
-        self.isNoteOrSection = isNoteOrSection
-        self.isPinned = isPinned
-        self.pinnedCount = pinnedCount
-        self.dateAdded = dateAdded
-        self.ingredients = ingredients
-        self.methods = methods
-        self.categories = categories
-        self.cuisines = cuisines
+        self.isNoteOrSection    = isNoteOrSection
+        self.isPinned           = isPinned
+        self.pinnedCount        = pinnedCount
+        self.dateAdded          = dateAdded
+        self.ingredients        = ingredients
+        self.methods            = methods
+        self.categories         = categories
+        self.cuisines           = cuisines
     }
 }

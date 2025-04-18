@@ -1,8 +1,7 @@
-// Sources/MyServer/routes.swift
-
 import Vapor
 import Fluent
 import SQLKit
+import JWT
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper for decoding JSONB → TEXT when fetching products
@@ -15,9 +14,7 @@ func routes(_ app: Application) throws {
     // ─────────────────────────────────────────────────────────────────────────
     // Public
     // ─────────────────────────────────────────────────────────────────────────
-    app.get { _ in
-        "✅ Vapor is up!"
-    }
+    app.get { _ in "✅ Vapor is up!" }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Authentication
@@ -29,49 +26,60 @@ func routes(_ app: Application) throws {
     // ─────────────────────────────────────────────────────────────────────────
     let protected = app.grouped(JWTMiddleware())
 
-    // 1️⃣ Fetch all of this user’s recipes
+    // 1️⃣ Fetch only this user’s recipes
     protected.get("user", "data") { req -> EventLoopFuture<[Recipe]> in
-        Recipe.query(on: req.db).all()
+        // Extract the user ID from the JWT payload
+        let payload = try req.auth.require(UserPayload.self)
+        return Recipe.query(on: req.db)
+            .filter(\.$owner.$id == payload.id)
+            .all()
     }
 
-    // 2️⃣ Overwrite all recipes with what the client sends
+    // 2️⃣ Overwrite only this user’s recipes
     protected.post("user", "data") { req -> EventLoopFuture<HTTPStatus> in
-        // Decode incoming full‑Recipe payload
+        let payload = try req.auth.require(UserPayload.self)
+        let userID = payload.id
+
+        // Decode incoming payload (ownerID is not in the JSON)
         let incoming = try req.content.decode([Recipe].self)
 
         return req.db.transaction { db in
-            // a) delete existing rows
-            Recipe.query(on: db).delete().flatMap {
-                // b) recreate from client payload
-                let creations = incoming.map { recipe in
-                    Recipe(
-                        id: recipe.id,
-                        remoteID: recipe.remoteID,
-                        title: recipe.title,
-                        description: recipe.description,
-                        cookTime: recipe.cookTime,
-                        prepTime: recipe.prepTime,
-                        servings: recipe.servings,
-                        imageURL: recipe.imageURL,
-                        domainURL: recipe.domainURL,
-                        nutritionalInfo: recipe.nutritionalInfo,
-                        rating: recipe.rating,
-                        ratingCount: recipe.ratingCount,
-                        note: recipe.note,
-                        isMealPlanInstance: recipe.isMealPlanInstance,
-                        isNoteOrSection: recipe.isNoteOrSection,
-                        isPinned: recipe.isPinned,
-                        pinnedCount: recipe.pinnedCount,
-                        dateAdded: recipe.dateAdded,
-                        ingredients: recipe.ingredients,
-                        methods: recipe.methods,
-                        categories: recipe.categories,
-                        cuisines: recipe.cuisines
-                    )
-                    .create(on: db)
+            // a) delete only this user’s existing recipes
+            Recipe.query(on: db)
+                .filter(\.$owner.$id == userID)
+                .delete()
+                .flatMap {
+                    // b) recreate with ownerID set to the current user
+                    let creations = incoming.map { r in
+                        Recipe(
+                            id:                   r.id,
+                            ownerID:              userID,
+                            remoteID:             r.remoteID,
+                            title:                r.title,
+                            description:          r.description,
+                            cookTime:             r.cookTime,
+                            prepTime:             r.prepTime,
+                            servings:             r.servings,
+                            imageURL:             r.imageURL,
+                            domainURL:            r.domainURL,
+                            nutritionalInfo:      r.nutritionalInfo,
+                            rating:               r.rating,
+                            ratingCount:          r.ratingCount,
+                            note:                 r.note,
+                            isMealPlanInstance:   r.isMealPlanInstance,
+                            isNoteOrSection:      r.isNoteOrSection,
+                            isPinned:             r.isPinned,
+                            pinnedCount:          r.pinnedCount,
+                            dateAdded:            r.dateAdded,
+                            ingredients:          r.ingredients,
+                            methods:              r.methods,
+                            categories:           r.categories,
+                            cuisines:             r.cuisines
+                        )
+                        .create(on: db)
+                    }
+                    return creations.flatten(on: db.eventLoop)
                 }
-                return creations.flatten(on: db.eventLoop)
-            }
         }
         .transform(to: .ok)
     }
@@ -92,10 +100,7 @@ func routes(_ app: Application) throws {
             .first(decoding: TextRow.self)
             .unwrap(or: Abort(.notFound))
             .map { row in
-                Response(
-                    status: .ok,
-                    body: .init(string: row.text)
-                )
+                Response(status: .ok, body: .init(string: row.text))
             }
     }
 }
