@@ -1,5 +1,3 @@
-// Sources/MyServer/configure.swift
-
 import NIOSSL
 import Fluent
 import FluentPostgresDriver
@@ -16,9 +14,7 @@ public func configure(_ app: Application) async throws {
     // MARK: Database
     // ─────────────────────────────────────────────────────────────────
     let hostname = Environment.get("DATABASE_HOST") ?? "localhost"
-    let port     = Environment.get("DATABASE_PORT")
-                      .flatMap(Int.init(_:))
-                  ?? SQLPostgresConfiguration.ianaPortNumber
+    let port     = Environment.get("DATABASE_PORT").flatMap(Int.init) ?? SQLPostgresConfiguration.ianaPortNumber
     let username = Environment.get("DATABASE_USERNAME") ?? "tannerbennett"
     let password = Environment.get("DATABASE_PASSWORD") ?? ""
     let database = Environment.get("DATABASE_NAME")     ?? "MyServerDB"
@@ -41,6 +37,12 @@ public func configure(_ app: Application) async throws {
     // ─────────────────────────────────────────────────────────────────
     let jwtKey = Environment.get("JWT_SECRET") ?? "CHANGE_THIS_SECRET"
     app.jwt.signers.use(.hs256(key: jwtKey))
+
+    // ─────────────────────────────────────────────────────────────────
+    // MARK: Middleware
+    // ─────────────────────────────────────────────────────────────────
+    // Logs Content-Length header for every request & response
+    app.middleware.use(DataSizeLoggingMiddleware())
 
     // ─────────────────────────────────────────────────────────────────
     // MARK: Migrations
