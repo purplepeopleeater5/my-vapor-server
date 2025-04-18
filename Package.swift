@@ -20,8 +20,8 @@ let package = Package(
 
         // Queues for background jobs (delta sync)
         .package(url: "https://github.com/vapor/queues.git",                  from: "1.8.0"),
-        // Backing driver for Queues (use HTTPS)
-        .package(url: "https://github.com/vapor/queues-fluent-driver.git",    from: "1.5.0"),
+        // Use SSH to fetch the Fluent driver without HTTPS authentication
+        .package(url: "git@github.com:vapor/queues-fluent-driver.git",        from: "1.5.0"),
     ],
     targets: [
         .executableTarget(
