@@ -135,37 +135,36 @@ func routes(_ app: Application) throws {
                 .filter(\.$owner.$id == userID)
                 .delete()
 
-            // recreate each incoming settings record
+            // recreate each incoming settings record WITHOUT specifying `id:`
             for dto in incoming {
                 let s = SettingsEntity1(
-                    id: dto.id,
-                    ownerID: userID,
-                    alwaysShowPinned:        dto.alwaysShowPinned,
-                    appColor:                dto.appColor,
-                    automaticallyImportFeed: dto.automaticallyImportFeed,
-                    automaticallyImportWeb:  dto.automaticallyImportWeb,
-                    calorieGoal:             dto.calorieGoal,
-                    calorieGoalColor:        dto.calorieGoalColor,
-                    countdownSoundName:      dto.countdownSoundName,
-                    countdownSoundVolume:    dto.countdownSoundVolume,
-                    customSoundFile:         dto.customSoundFile,
-                    customSoundURL:          dto.customSoundURL,
-                    detectWebsiteFromLinks:  dto.detectWebsiteFromLinks,
-                    isMicrophoneOn:          dto.isMicrophoneOn,
-                    isTTSON:                 dto.isTTSON,
-                    itemsPerRow:             dto.itemsPerRow,
-                    limitDiscoverFeed:       dto.limitDiscoverFeed,
-                    rating:                  dto.rating,
-                    rowStyle:                dto.rowStyle,
-                    selectedDisplayMode:     dto.selectedDisplayMode,
-                    selectedSortOption:      dto.selectedSortOption,
-                    showCaloriesCount:       dto.showCaloriesCount,
-                    sortByCategories:        dto.sortByCategories,
-                    startupView:             dto.startupView,
-                    syncGroceriesWithMealPlan:   dto.syncGroceriesWithMealPlan,
-                    syncMealPlanWithGroceries:   dto.syncMealPlanWithGroceries,
-                    timeLimit:               dto.timeLimit,
-                    timerSoundChoice:        dto.timerSoundChoice
+                    ownerID:                  userID,
+                    alwaysShowPinned:         dto.alwaysShowPinned,
+                    appColor:                 dto.appColor,
+                    automaticallyImportFeed:  dto.automaticallyImportFeed,
+                    automaticallyImportWeb:   dto.automaticallyImportWeb,
+                    calorieGoal:              dto.calorieGoal,
+                    calorieGoalColor:         dto.calorieGoalColor,
+                    countdownSoundName:       dto.countdownSoundName,
+                    countdownSoundVolume:     dto.countdownSoundVolume,
+                    customSoundFile:          dto.customSoundFile,
+                    customSoundURL:           dto.customSoundURL,
+                    detectWebsiteFromLinks:   dto.detectWebsiteFromLinks,
+                    isMicrophoneOn:           dto.isMicrophoneOn,
+                    isTTSON:                  dto.isTTSON,
+                    itemsPerRow:              dto.itemsPerRow,
+                    limitDiscoverFeed:        dto.limitDiscoverFeed,
+                    rating:                   dto.rating,
+                    rowStyle:                 dto.rowStyle,
+                    selectedDisplayMode:      dto.selectedDisplayMode,
+                    selectedSortOption:       dto.selectedSortOption,
+                    showCaloriesCount:        dto.showCaloriesCount,
+                    sortByCategories:         dto.sortByCategories,
+                    startupView:              dto.startupView,
+                    syncGroceriesWithMealPlan: dto.syncGroceriesWithMealPlan,
+                    syncMealPlanWithGroceries: dto.syncGroceriesWithMealPlan,
+                    timeLimit:                dto.timeLimit,
+                    timerSoundChoice:         dto.timerSoundChoice
                 )
                 try await s.create(on: db)
             }
