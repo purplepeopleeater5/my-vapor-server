@@ -54,10 +54,12 @@ func routes(_ app: Application) throws {
 
             // b) recreate each incoming DTO with a fresh primary key
             for dto in incoming {
-                // dto.id.uuidString becomes our remoteID
+                guard let dtoID = dto.id else {
+                    throw Abort(.badRequest, reason: "Missing recipe id")
+                }
                 let r = Recipe(
                     ownerID:            userID,
-                    remoteID:           dto.id.uuidString,
+                    remoteID:           dtoID.uuidString,
                     title:              dto.title,
                     description:        dto.description,
                     cookTime:           dto.cookTime,
@@ -129,12 +131,12 @@ func routes(_ app: Application) throws {
         let incoming = try req.content.decode([SettingsDTO].self)
 
         try await req.db.transaction { db in
-            // delete existing settings for this user
+            // Delete existing settings for this user
             _ = try await SettingsEntity1.query(on: db)
                 .filter(\.$owner.$id == userID)
                 .delete()
 
-            // recreate each incoming settings record
+            // Re‑upsert each incoming settings record
             for dto in incoming {
                 let s = SettingsEntity1(
                     id: dto.id,
