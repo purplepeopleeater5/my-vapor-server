@@ -3,20 +3,19 @@ import Fluent
 import SQLKit
 import JWT
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper for decoding JSONB → TEXT when fetching products
-// ─────────────────────────────────────────────────────────────────────────────
-private struct TextRow: Decodable {
-    let text: String
-}
+private struct TextRow: Decodable { let text: String }
 
 func routes(_ app: Application) throws {
+    // health check
     app.get { _ in "✅ Vapor is up!" }
+
+    // auth
     try app.register(collection: AuthController())
 
+    // protected by JWT
     let protected = app.grouped(JWTMiddleware())
 
-    // 1️⃣ Fetch only this user’s recipes
+    // ─── fetch recipes ───────────────────────────────────────
     protected.get("user", "data") { req async throws -> [Recipe] in
         let payload = try req.auth.require(UserPayload.self)
         return try await Recipe.query(on: req.db)
@@ -24,21 +23,21 @@ func routes(_ app: Application) throws {
             .all()
     }
 
-    // 2️⃣ Overwrite only this user’s recipes
+    // ─── overwrite recipes ────────────────────────────────────
     protected.post("user", "data") { req async throws -> HTTPStatus in
         let payload = try req.auth.require(UserPayload.self)
         let userID = payload.id
 
-        // Decode into DTOs (no owner field in the JSON)
+        // decode flat DTOs
         let incoming = try req.content.decode([RecipeDTO].self)
 
         try await req.db.transaction { db in
-            // a) delete this user’s existing recipes
+            // a) delete existing for this user
             _ = try await Recipe.query(on: db)
                 .filter(\.$owner.$id == userID)
                 .delete()
 
-            // b) recreate with ownerID wired in
+            // b) recreate with owner set
             for dto in incoming {
                 let r = Recipe(
                     id:                   dto.id,
@@ -62,8 +61,8 @@ func routes(_ app: Application) throws {
                     dateAdded:            dto.dateAdded,
                     ingredients:          dto.ingredients,
                     methods:              dto.methods,
-                    categories:           dto.categories,
-                    cuisines:             dto.cuisines
+                    categories:           dto.categories,   // plain strings
+                    cuisines:             dto.cuisines      // plain strings
                 )
                 try await r.create(on: db)
             }
@@ -72,27 +71,24 @@ func routes(_ app: Application) throws {
         return .ok
     }
 
-    // 3️⃣ Lookup a product by barcode (raw JSONB → TEXT)
+    // ─── product lookup ───────────────────────────────────────
     protected.get("product", ":code") { req async throws -> Response in
         guard let code = req.parameters.get("code") else {
             throw Abort(.badRequest, reason: "Missing product code")
         }
         let sqlDb = req.db as! SQLDatabase
 
-        // Run the raw query and decode into an optional TextRow
         let maybe = try await sqlDb
             .raw("""
                 SELECT data::TEXT AS text
                   FROM products
                  WHERE data->>'code' = \(unsafeRaw: code)
-                """)
+              """)
             .first(decoding: TextRow.self)
 
-        // Unwrap or throw 404
         guard let row = maybe else {
             throw Abort(.notFound)
         }
-
         return Response(status: .ok, body: .init(string: row.text))
     }
 }

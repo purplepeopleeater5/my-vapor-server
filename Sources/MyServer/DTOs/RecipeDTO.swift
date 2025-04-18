@@ -1,6 +1,6 @@
 import Vapor
 
-/// Only the fields the client actually sends/receives for recipes.
+/// Exactly what the client sends/ & receives for a recipe.
 struct RecipeDTO: Content {
     let id: UUID?
     let remoteID: String
@@ -23,6 +23,6 @@ struct RecipeDTO: Content {
 
     let ingredients: [String]
     let methods: [String]
-    let categories: [String]
-    let cuisines: [String]
+    let categories: [String]   // ← now plain names
+    let cuisines: [String]     // ← now plain names
 }
