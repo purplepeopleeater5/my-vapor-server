@@ -10,6 +10,33 @@ private struct TextRow: Decodable {
     let text: String
 }
 
+/// DTO matching exactly what the client sends
+struct RecipeDTO: Content {
+    let id: UUID?
+    let remoteID: String
+    let title: String
+    let description: String
+    let cookTime: String
+    let prepTime: String
+    let servings: String
+    let imageURL: String
+    let domainURL: String
+    let nutritionalInfo: String
+    let rating: Double
+    let ratingCount: Double
+    let note: String
+    let isMealPlanInstance: Bool
+    let isNoteOrSection: Bool
+    let isPinned: Bool
+    let pinnedCount: Int
+    let dateAdded: Date
+
+    let ingredients: [String]
+    let methods: [String]
+    let categories: [String]
+    let cuisines: [String]
+}
+
 func routes(_ app: Application) throws {
     // ─────────────────────────────────────────────────────────────────────────
     // Public
@@ -28,7 +55,6 @@ func routes(_ app: Application) throws {
 
     // 1️⃣ Fetch only this user’s recipes
     protected.get("user", "data") { req -> EventLoopFuture<[Recipe]> in
-        // Extract the user ID from the JWT payload
         let payload = try req.auth.require(UserPayload.self)
         return Recipe.query(on: req.db)
             .filter(\.$owner.$id == payload.id)
@@ -40,41 +66,41 @@ func routes(_ app: Application) throws {
         let payload = try req.auth.require(UserPayload.self)
         let userID = payload.id
 
-        // Decode incoming payload (ownerID is not in the JSON)
-        let incoming = try req.content.decode([Recipe].self)
+        // Decode into DTOs, not the full Recipe model
+        let incoming = try req.content.decode([RecipeDTO].self)
 
         return req.db.transaction { db in
-            // a) delete only this user’s existing recipes
+            // a) Delete only this user’s existing recipes
             Recipe.query(on: db)
                 .filter(\.$owner.$id == userID)
                 .delete()
                 .flatMap {
-                    // b) recreate with ownerID set to the current user
-                    let creations = incoming.map { r in
+                    // b) Recreate them, wiring in ownerID explicitly
+                    let creations = incoming.map { dto in
                         Recipe(
-                            id:                   r.id,
+                            id:                   dto.id,
                             ownerID:              userID,
-                            remoteID:             r.remoteID,
-                            title:                r.title,
-                            description:          r.description,
-                            cookTime:             r.cookTime,
-                            prepTime:             r.prepTime,
-                            servings:             r.servings,
-                            imageURL:             r.imageURL,
-                            domainURL:            r.domainURL,
-                            nutritionalInfo:      r.nutritionalInfo,
-                            rating:               r.rating,
-                            ratingCount:          r.ratingCount,
-                            note:                 r.note,
-                            isMealPlanInstance:   r.isMealPlanInstance,
-                            isNoteOrSection:      r.isNoteOrSection,
-                            isPinned:             r.isPinned,
-                            pinnedCount:          r.pinnedCount,
-                            dateAdded:            r.dateAdded,
-                            ingredients:          r.ingredients,
-                            methods:              r.methods,
-                            categories:           r.categories,
-                            cuisines:             r.cuisines
+                            remoteID:             dto.remoteID,
+                            title:                dto.title,
+                            description:          dto.description,
+                            cookTime:             dto.cookTime,
+                            prepTime:             dto.prepTime,
+                            servings:             dto.servings,
+                            imageURL:             dto.imageURL,
+                            domainURL:            dto.domainURL,
+                            nutritionalInfo:      dto.nutritionalInfo,
+                            rating:               dto.rating,
+                            ratingCount:          dto.ratingCount,
+                            note:                 dto.note,
+                            isMealPlanInstance:   dto.isMealPlanInstance,
+                            isNoteOrSection:      dto.isNoteOrSection,
+                            isPinned:             dto.isPinned,
+                            pinnedCount:          dto.pinnedCount,
+                            dateAdded:            dto.dateAdded,
+                            ingredients:          dto.ingredients,
+                            methods:              dto.methods,
+                            categories:           dto.categories,
+                            cuisines:             dto.cuisines
                         )
                         .create(on: db)
                     }
