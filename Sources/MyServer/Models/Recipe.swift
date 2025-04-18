@@ -9,9 +9,9 @@ final class Recipe: Model, Content {
     @ID(key: .id)
     var id: UUID?
 
-    //––– Link to the owning user –––
-    @Parent(key: "userID")
-    var owner: User
+    //––– Optional link to the owning user –––
+    @OptionalParent(key: "userID")
+    var owner: User?
 
     //––– Scalar attributes –––
     @Field(key: "id1")
@@ -84,7 +84,7 @@ final class Recipe: Model, Content {
     /// Convenience initializer if you want to build one in code
     init(
         id: UUID? = nil,
-        ownerID: UUID,
+        ownerID: UUID? = nil,
         remoteID: String,
         title: String,
         description: String,
@@ -108,19 +108,21 @@ final class Recipe: Model, Content {
         cuisines: [String]
     ) {
         self.id = id
-        self.$owner.id = ownerID
-        self.remoteID         = remoteID
-        self.title            = title
-        self.description      = description
-        self.cookTime         = cookTime
-        self.prepTime         = prepTime
-        self.servings         = servings
-        self.imageURL         = imageURL
-        self.domainURL        = domainURL
-        self.nutritionalInfo  = nutritionalInfo
-        self.rating           = rating
-        self.ratingCount      = ratingCount
-        self.note             = note
+        if let ownerID = ownerID {
+            self.$owner.id = ownerID
+        }
+        self.remoteID           = remoteID
+        self.title              = title
+        self.description        = description
+        self.cookTime           = cookTime
+        self.prepTime           = prepTime
+        self.servings           = servings
+        self.imageURL           = imageURL
+        self.domainURL          = domainURL
+        self.nutritionalInfo    = nutritionalInfo
+        self.rating             = rating
+        self.ratingCount        = ratingCount
+        self.note               = note
         self.isMealPlanInstance = isMealPlanInstance
         self.isNoteOrSection    = isNoteOrSection
         self.isPinned           = isPinned

@@ -3,8 +3,8 @@ import Fluent
 struct AddUserIDToRecipe: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         database.schema(Recipe.schema)
-            // add the new column, required, with FK to users.id
-            .field("userID", .uuid, .required, .references("users", "id"))
+            // add as nullable (no `.required`) so existing rows pass
+            .field("userID", .uuid, .references("users", "id"))
             .update()
     }
 
