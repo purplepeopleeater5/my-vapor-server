@@ -4,7 +4,7 @@ import SQLKit
 import JWT
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helper for decoding JSONB → TEXT when fetching products
+// Helper for decoding JSONB → TEXT when fetching products or search results
 // ─────────────────────────────────────────────────────────────────────────────
 private struct TextRow: Decodable {
     let text: String
@@ -17,12 +17,12 @@ func routes(_ app: Application) throws {
     app.get { _ in "✅ Vapor is up!" }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Authentication
+    // Authentication (login, signup, etc.)
     // ─────────────────────────────────────────────────────────────────────────
     try app.register(collection: AuthController())
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Protected routes (requires Bearer JWT)
+    // Protected routes (requires valid Bearer JWT)
     // ─────────────────────────────────────────────────────────────────────────
     let protected = app.grouped(JWTMiddleware())
 
@@ -37,26 +37,26 @@ func routes(_ app: Application) throws {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 2️⃣ Overwrite only this user’s recipes (use create(on:) to avoid PK conflicts)
+    // 2️⃣ Overwrite only this user’s recipes
+    //    (delete old, recreate from DTO)
     // ─────────────────────────────────────────────────────────────────────────
     protected.post("user", "data") { req async throws -> HTTPStatus in
         let payload = try req.auth.require(UserPayload.self)
         let userID = payload.id
-
         let incoming = try req.content.decode([RecipeDTO].self)
 
         try await req.db.transaction { db in
-            // delete existing recipes for this user
+            // delete existing
             _ = try await Recipe.query(on: db)
                 .filter(\.$owner.$id == userID)
                 .delete()
 
-            // recreate each incoming DTO with a fresh primary key
+            // recreate
             for dto in incoming {
                 guard let dtoID = dto.id else {
                     throw Abort(.badRequest, reason: "Missing recipe id")
                 }
-                let r = Recipe(
+                let recipe = Recipe(
                     ownerID:            userID,
                     remoteID:           dtoID.uuidString,
                     title:              dto.title,
@@ -80,22 +80,21 @@ func routes(_ app: Application) throws {
                     categories:         dto.categories,
                     cuisines:           dto.cuisines
                 )
-                try await r.create(on: db)
+                try await recipe.create(on: db)
             }
         }
-
         return .ok
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 3️⃣ Lookup a product by barcode (raw JSONB → TEXT)
+    // 3️⃣ Lookup a product by barcode
+    //    Returns raw JSONB → TEXT
     // ─────────────────────────────────────────────────────────────────────────
     protected.get("product", ":code") { req async throws -> Response in
         guard let code = req.parameters.get("code") else {
             throw Abort(.badRequest, reason: "Missing product code")
         }
         let sqlDb = req.db as! SQLDatabase
-
         let maybe = try await sqlDb
             .raw("""
                 SELECT data::TEXT AS text
@@ -105,9 +104,31 @@ func routes(_ app: Application) throws {
             .first(decoding: TextRow.self)
 
         guard let row = maybe else {
-            throw Abort(.notFound)
+            throw Abort(.notFound, reason: "Product not found")
         }
         return Response(status: .ok, body: .init(string: row.text))
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 3b️⃣ Search products by name (full‑text via GIN trigram index)
+    // ─────────────────────────────────────────────────────────────────────────
+    protected.get("product", "search") { req async throws -> [TextRow] in
+        struct Params: Content {
+            let q: String
+            let limit: Int?
+        }
+        let p = try req.query.decode(Params.self)
+        let sqlDb = req.db as! SQLDatabase
+
+        return try await sqlDb
+            .raw("""
+                SELECT data::TEXT AS text
+                  FROM products
+                 WHERE data->>'product_name' ILIKE \(bind: "%\(p.q)%")
+                 ORDER BY similarity(data->>'product_name', \(bind: p.q)) DESC
+                 LIMIT \(bind: p.limit ?? 20)
+              """)
+            .all(decoding: TextRow.self)
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -121,21 +142,21 @@ func routes(_ app: Application) throws {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 5️⃣ Overwrite only this user’s settings (use create(on:) to avoid PK conflicts)
+    // 5️⃣ Overwrite only this user’s settings
+    //    (delete old, recreate from DTO)
     // ─────────────────────────────────────────────────────────────────────────
     protected.post("user", "settings") { req async throws -> HTTPStatus in
         let payload = try req.auth.require(UserPayload.self)
         let userID = payload.id
-
         let incoming = try req.content.decode([SettingsDTO].self)
 
         try await req.db.transaction { db in
-            // delete existing settings for this user
+            // delete existing
             _ = try await SettingsEntity1.query(on: db)
                 .filter(\.$owner.$id == userID)
                 .delete()
 
-            // recreate each incoming settings record WITHOUT specifying `id:`
+            // recreate
             for dto in incoming {
                 let s = SettingsEntity1(
                     ownerID:                  userID,
@@ -162,14 +183,13 @@ func routes(_ app: Application) throws {
                     sortByCategories:         dto.sortByCategories,
                     startupView:              dto.startupView,
                     syncGroceriesWithMealPlan: dto.syncGroceriesWithMealPlan,
-                    syncMealPlanWithGroceries: dto.syncGroceriesWithMealPlan,
+                    syncMealPlanWithGroceries: dto.syncMealPlanWithGroceries,
                     timeLimit:                dto.timeLimit,
                     timerSoundChoice:         dto.timerSoundChoice
                 )
                 try await s.create(on: db)
             }
         }
-
         return .ok
     }
 }
