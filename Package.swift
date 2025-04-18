@@ -8,39 +8,26 @@ let package = Package(
     ],
     dependencies: [
         // Vapor framework
-        .package(url: "https://github.com/vapor/vapor.git",                   from: "4.110.1"),
+        .package(url: "https://github.com/vapor/vapor.git", from: "4.110.1"),
         // ORM core
-        .package(url: "https://github.com/vapor/fluent.git",                  from: "4.9.0"),
+        .package(url: "https://github.com/vapor/fluent.git", from: "4.9.0"),
         // Postgres driver
-        .package(url: "https://github.com/vapor/fluent-postgres-driver.git",  from: "2.8.0"),
+        .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.8.0"),
         // JWT integration for Vapor
-        .package(url: "https://github.com/vapor/jwt.git",                     from: "4.0.0"),
+        .package(url: "https://github.com/vapor/jwt.git", from: "4.0.0"),
         // SwiftNIO core
-        .package(url: "https://github.com/apple/swift-nio.git",               from: "2.65.0"),
-
-        // Queues core package
-        .package(url: "https://github.com/vapor/queues.git",                  from: "1.17.0"),
-        // Fluent‑based Queues driver (community)
-        .package(url: "https://github.com/m-barthelemy/vapor-queues-fluent-driver.git",
-                 from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
     ],
     targets: [
         .executableTarget(
             name: "MyServer",
             dependencies: [
-                // Core dependencies
                 .product(name: "Vapor",                package: "vapor"),
                 .product(name: "Fluent",               package: "fluent"),
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
                 .product(name: "JWT",                  package: "jwt"),
-
-                // SwiftNIO
                 .product(name: "NIOCore",              package: "swift-nio"),
                 .product(name: "NIOPosix",             package: "swift-nio"),
-
-                // Queues for scheduled jobs
-                .product(name: "Queues",               package: "queues"),
-                .product(name: "QueuesFluentDriver",   package: "vapor-queues-fluent-driver"),
             ]
         ),
         .testTarget(
