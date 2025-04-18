@@ -37,48 +37,49 @@ func routes(_ app: Application) throws {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 2️⃣ Overwrite only this user’s recipes
+    // 2️⃣ Overwrite only this user’s recipes (use create(on:) to avoid PK conflicts)
     // ─────────────────────────────────────────────────────────────────────────
     protected.post("user", "data") { req async throws -> HTTPStatus in
         let payload = try req.auth.require(UserPayload.self)
         let userID = payload.id
 
+        // Decode exactly what the client sent
         let incoming = try req.content.decode([RecipeDTO].self)
 
         try await req.db.transaction { db in
-            // Delete existing recipes for this user
+            // a) delete existing for this user
             _ = try await Recipe.query(on: db)
                 .filter(\.$owner.$id == userID)
                 .delete()
 
-            // Re‑upsert each incoming recipe
+            // b) recreate each incoming DTO with a fresh primary key
             for dto in incoming {
+                // dto.id.uuidString becomes our remoteID
                 let r = Recipe(
-                    id:                   dto.id,
-                    ownerID:              userID,
-                    remoteID:             dto.remoteID,
-                    title:                dto.title,
-                    description:          dto.description,
-                    cookTime:             dto.cookTime,
-                    prepTime:             dto.prepTime,
-                    servings:             dto.servings,
-                    imageURL:             dto.imageURL,
-                    domainURL:            dto.domainURL,
-                    nutritionalInfo:      dto.nutritionalInfo,
-                    rating:               dto.rating,
-                    ratingCount:          dto.ratingCount,
-                    note:                 dto.note,
-                    isMealPlanInstance:   dto.isMealPlanInstance,
-                    isNoteOrSection:      dto.isNoteOrSection,
-                    isPinned:             dto.isPinned,
-                    pinnedCount:          dto.pinnedCount,
-                    dateAdded:            dto.dateAdded,
-                    ingredients:          dto.ingredients,
-                    methods:              dto.methods,
-                    categories:           dto.categories,
-                    cuisines:             dto.cuisines
+                    ownerID:            userID,
+                    remoteID:           dto.id.uuidString,
+                    title:              dto.title,
+                    description:        dto.description,
+                    cookTime:           dto.cookTime,
+                    prepTime:           dto.prepTime,
+                    servings:           dto.servings,
+                    imageURL:           dto.imageURL,
+                    domainURL:          dto.domainURL,
+                    nutritionalInfo:    dto.nutritionalInfo,
+                    rating:             dto.rating,
+                    ratingCount:        dto.ratingCount,
+                    note:               dto.note,
+                    isMealPlanInstance: dto.isMealPlanInstance,
+                    isNoteOrSection:    dto.isNoteOrSection,
+                    isPinned:           dto.isPinned,
+                    pinnedCount:        dto.pinnedCount,
+                    dateAdded:          dto.dateAdded,
+                    ingredients:        dto.ingredients,
+                    methods:            dto.methods,
+                    categories:         dto.categories,
+                    cuisines:           dto.cuisines
                 )
-                try await r.save(on: db)
+                try await r.create(on: db)
             }
         }
 
@@ -128,12 +129,12 @@ func routes(_ app: Application) throws {
         let incoming = try req.content.decode([SettingsDTO].self)
 
         try await req.db.transaction { db in
-            // Delete existing settings for this user
+            // delete existing settings for this user
             _ = try await SettingsEntity1.query(on: db)
                 .filter(\.$owner.$id == userID)
                 .delete()
 
-            // Re‑upsert each incoming settings record
+            // recreate each incoming settings record
             for dto in incoming {
                 let s = SettingsEntity1(
                     id: dto.id,
