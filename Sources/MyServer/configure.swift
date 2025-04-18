@@ -50,7 +50,8 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateTodo())
     app.migrations.add(CreateUser())
     app.migrations.add(CreateRecipe())
-    app.migrations.add(AddUserIDToRecipe())  // ← new migration to add userID column
+    app.migrations.add(AddUserIDToRecipe())   // <- adds userID to recipes
+    app.migrations.add(CreateSettings())       // <- your new settings table
 
     #if DEBUG
     try await app.autoMigrate()
