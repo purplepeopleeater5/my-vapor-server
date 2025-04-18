@@ -11,19 +11,9 @@ private struct TextRow: Decodable {
 }
 
 func routes(_ app: Application) throws {
-    // ─────────────────────────────────────────────────────────────────────────
-    // Public
-    // ─────────────────────────────────────────────────────────────────────────
     app.get { _ in "✅ Vapor is up!" }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Authentication
-    // ─────────────────────────────────────────────────────────────────────────
     try app.register(collection: AuthController())
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Protected (requires Bearer JWT)
-    // ─────────────────────────────────────────────────────────────────────────
     let protected = app.grouped(JWTMiddleware())
 
     // 1️⃣ Fetch only this user’s recipes
@@ -39,7 +29,7 @@ func routes(_ app: Application) throws {
         let payload = try req.auth.require(UserPayload.self)
         let userID = payload.id
 
-        // Decode the flat DTO (no `owner` field)
+        // Decode into DTOs (no owner field in the JSON)
         let incoming = try req.content.decode([RecipeDTO].self)
 
         try await req.db.transaction { db in
@@ -48,7 +38,7 @@ func routes(_ app: Application) throws {
                 .filter(\.$owner.$id == userID)
                 .delete()
 
-            // b) recreate with the ownerID from the JWT
+            // b) recreate with ownerID wired in
             for dto in incoming {
                 let r = Recipe(
                     id:                   dto.id,
@@ -88,14 +78,21 @@ func routes(_ app: Application) throws {
             throw Abort(.badRequest, reason: "Missing product code")
         }
         let sqlDb = req.db as! SQLDatabase
-        let row = try await sqlDb
+
+        // Run the raw query and decode into an optional TextRow
+        let maybe = try await sqlDb
             .raw("""
                 SELECT data::TEXT AS text
                   FROM products
                  WHERE data->>'code' = \(unsafeRaw: code)
                 """)
             .first(decoding: TextRow.self)
-            .unwrap(or: Abort(.notFound))
+
+        // Unwrap or throw 404
+        guard let row = maybe else {
+            throw Abort(.notFound)
+        }
+
         return Response(status: .ok, body: .init(string: row.text))
     }
 }
