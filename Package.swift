@@ -18,10 +18,11 @@ let package = Package(
         // SwiftNIO core
         .package(url: "https://github.com/apple/swift-nio.git",               from: "2.65.0"),
 
-        // Queues for background jobs (delta sync)
-        .package(url: "https://github.com/vapor/queues.git",                  from: "1.8.0"),
-        // Use SSH to fetch the Fluent driver without HTTPS authentication
-        .package(url: "git@github.com:vapor/queues-fluent-driver.git",        from: "1.5.0"),
+        // Queues core package
+        .package(url: "https://github.com/vapor/queues.git",                  from: "1.17.0"),
+        // Fluent‑based Queues driver (community)
+        .package(url: "https://github.com/m-barthelemy/vapor-queues-fluent-driver.git",
+                 from: "1.0.0"),
     ],
     targets: [
         .executableTarget(
@@ -39,7 +40,7 @@ let package = Package(
 
                 // Queues for scheduled jobs
                 .product(name: "Queues",               package: "queues"),
-                .product(name: "QueuesFluentDriver",   package: "queues-fluent-driver"),
+                .product(name: "QueuesFluentDriver",   package: "vapor-queues-fluent-driver"),
             ]
         ),
         .testTarget(
