@@ -6,7 +6,7 @@ import JWT
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper for decoding JSONB → TEXT when fetching products or search results
 // ─────────────────────────────────────────────────────────────────────────────
-private struct TextRow: Decodable {
+private struct TextRow: Content {
     let text: String
 }
 
@@ -99,7 +99,7 @@ func routes(_ app: Application) throws {
             .raw("""
                 SELECT data::TEXT AS text
                   FROM products
-                 WHERE data->>'code' = \(unsafeRaw: code)
+                 WHERE data->>'code' = \(bind: code)
               """)
             .first(decoding: TextRow.self)
 

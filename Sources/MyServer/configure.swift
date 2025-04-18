@@ -2,7 +2,7 @@
 //  configure.swift
 //  MyServer
 //
-//  Complete, self‑contained Vapor 4 configuration
+//  Complete Vapor 4 + Queues configuration
 //
 
 import NIOSSL
@@ -11,18 +11,17 @@ import FluentPostgresDriver
 import Vapor
 import JWT
 
-// NEW ⬇︎
-import Queues                     // background / scheduled jobs
-import QueuesFluentDriver         // Fluent persistence for Queues
+import Queues                   // for ScheduledJob support
+import QueuesFluentDriver       // Fluent-backed Queues driver
 
 public func configure(_ app: Application) async throws {
     // ─────────────────────────────────────────────────────────────
-    // 1️⃣  Large request bodies (bulk recipe uploads, etc.)
+    // 1️⃣ Allow large request bodies
     // ─────────────────────────────────────────────────────────────
     app.routes.defaultMaxBodySize = "2000mb"
 
     // ─────────────────────────────────────────────────────────────
-    // 2️⃣  Database (Postgres)
+    // 2️⃣ Database configuration (Postgres)
     // ─────────────────────────────────────────────────────────────
     let hostname = Environment.get("DATABASE_HOST") ?? "localhost"
     let port     = Environment.get("DATABASE_PORT").flatMap(Int.init)
@@ -33,35 +32,35 @@ public func configure(_ app: Application) async throws {
 
     let dbConfig = SQLPostgresConfiguration(
         hostname: hostname,
-        port: port,
+        port:     port,
         username: username,
         password: password.isEmpty ? nil : password,
         database: database,
-        tls: .disable                                   // local dev
+        tls:      .disable        // disable TLS in dev
     )
     app.databases.use(.postgres(configuration: dbConfig), as: .psql)
 
     // ─────────────────────────────────────────────────────────────
-    // 3️⃣  JWT signer
+    // 3️⃣ JWT signer
     // ─────────────────────────────────────────────────────────────
     let jwtKey = Environment.get("JWT_SECRET") ?? "CHANGE_THIS_SECRET"
     app.jwt.signers.use(.hs256(key: jwtKey))
 
     // ─────────────────────────────────────────────────────────────
-    // 4️⃣  Global middleware
+    // 4️⃣ Global middleware
     // ─────────────────────────────────────────────────────────────
-    app.middleware.use(DataSizeLoggingMiddleware())     // prints Content‑Length
+    app.middleware.use(DataSizeLoggingMiddleware())  // logs Content-Length
 
     // ─────────────────────────────────────────────────────────────
-    // 5️⃣  Queues  (nightly Open Food Facts delta sync)
+    // 5️⃣ Queues (nightly OFF delta sync)
     // ─────────────────────────────────────────────────────────────
-    app.queues.use(.fluent())                           // driver backed by Postgres
-    app.queues.schedule(DeltaSyncJob())                 // defined in Jobs/DeltaSyncJob.swift
+    app.queues.use(.fluent())                        // store jobs in Postgres
+    app.queues.schedule(DeltaSyncJob())              // defined in Jobs/DeltaSyncJob.swift
         .daily()
-        .at(hour: 3, minute: 30)                        // HH:MM in server TZ
+        .at(.init(hour: 3, minute: 30))             // run at 03:30 server time
 
     // ─────────────────────────────────────────────────────────────
-    // 6️⃣  Migrations
+    // 6️⃣ Migrations
     // ─────────────────────────────────────────────────────────────
     app.migrations.add(CreateTodo())
     app.migrations.add(CreateUser())
@@ -69,27 +68,26 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(AddUserIDToRecipe())
     app.migrations.add(CreateSettings())
 
-    // NEW: queues + Open Food Facts product table
-    app.migrations.add(QueuesMigration())               // persists job metadata
-    app.migrations.add(CreateProduct())                 // products.jsonb table
+    // Open Food Facts product table
+    app.migrations.add(CreateProduct())
 
     #if DEBUG
     try await app.autoMigrate()
     #endif
 
     // ─────────────────────────────────────────────────────────────
-    // 7️⃣  CLI commands  (one‑shot bulk importer)
+    // 7️⃣ CLI commands (bulk import)
     // ─────────────────────────────────────────────────────────────
     app.commands.use(ImportProducts(), as: "import-products")
 
     // ─────────────────────────────────────────────────────────────
-    // 8️⃣  Kick off in‑process job runner
-    //     (omit if you plan to run `vapor queues worker` separately)
+    // 8️⃣ Start in‑process queue worker
+    //    (omit if running `vapor queues worker` externally)
     // ─────────────────────────────────────────────────────────────
-    try app.queues.startInProcessJobs(on: .application)
+    try app.queues.startInProcessJobs()
 
     // ─────────────────────────────────────────────────────────────
-    // 9️⃣  Routes
+    // 9️⃣ Routes
     // ─────────────────────────────────────────────────────────────
     try routes(app)
 }
