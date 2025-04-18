@@ -43,16 +43,15 @@ func routes(_ app: Application) throws {
         let payload = try req.auth.require(UserPayload.self)
         let userID = payload.id
 
-        // Decode exactly what the client sent
         let incoming = try req.content.decode([RecipeDTO].self)
 
         try await req.db.transaction { db in
-            // a) delete existing for this user
+            // delete existing recipes for this user
             _ = try await Recipe.query(on: db)
                 .filter(\.$owner.$id == userID)
                 .delete()
 
-            // b) recreate each incoming DTO with a fresh primary key
+            // recreate each incoming DTO with a fresh primary key
             for dto in incoming {
                 guard let dtoID = dto.id else {
                     throw Abort(.badRequest, reason: "Missing recipe id")
@@ -122,7 +121,7 @@ func routes(_ app: Application) throws {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 5️⃣ Overwrite only this user’s settings
+    // 5️⃣ Overwrite only this user’s settings (use create(on:) to avoid PK conflicts)
     // ─────────────────────────────────────────────────────────────────────────
     protected.post("user", "settings") { req async throws -> HTTPStatus in
         let payload = try req.auth.require(UserPayload.self)
@@ -131,12 +130,12 @@ func routes(_ app: Application) throws {
         let incoming = try req.content.decode([SettingsDTO].self)
 
         try await req.db.transaction { db in
-            // Delete existing settings for this user
+            // delete existing settings for this user
             _ = try await SettingsEntity1.query(on: db)
                 .filter(\.$owner.$id == userID)
                 .delete()
 
-            // Re‑upsert each incoming settings record
+            // recreate each incoming settings record
             for dto in incoming {
                 let s = SettingsEntity1(
                     id: dto.id,
@@ -168,7 +167,7 @@ func routes(_ app: Application) throws {
                     timeLimit:               dto.timeLimit,
                     timerSoundChoice:        dto.timerSoundChoice
                 )
-                try await s.save(on: db)
+                try await s.create(on: db)
             }
         }
 
